@@ -9,6 +9,10 @@ using System.Text;
 using Terraria.ID;
 using System.Configuration;
 using static TitleLibrary.Configuration;
+using System.Text.RegularExpressions;
+using TShockAPI.DB;
+using System.Data;
+using IL.Terraria.Chat.Commands;
 
 namespace TitleLibrary
 {
@@ -86,7 +90,10 @@ namespace TitleLibrary
                         suffix = string.Join(" ", titleInfo.Suffix);
                         sufsuffix = string.Join(" ", titleInfo.SufSuffix);
                     }
-
+                    ReplacePlaceholders(ref preprefix, TShock.Players[e.Who]);
+                    ReplacePlaceholders(ref prefix, TShock.Players[e.Who]);
+                    ReplacePlaceholders(ref suffix, TShock.Players[e.Who]);
+                    ReplacePlaceholders(ref sufsuffix, TShock.Players[e.Who]);
                     // 构建新的消息内容
                     string NewMessage = string.Format(Config.ChatFormat, preprefix, prefix, PlayerName, suffix, sufsuffix, NewChatContent);
 
@@ -102,6 +109,25 @@ namespace TitleLibrary
         }
         #endregion
 
+        private static void ReplacePlaceholders(ref string message, TSPlayer player)
+        {
+            var placeholders = new Dictionary<string, Func<string>>()
+            {
+                { "health", () => player.TPlayer.statLife.ToString() },
+                { "maxhealth", () => player.TPlayer.statLifeMax.ToString() },
+                { "mana", () => player.TPlayer.statMana.ToString() },
+                { "maxmana", () =>player.TPlayer.statManaMax.ToString() },
+                { "handitem", () =>player.TPlayer.HeldItem.Name.ToString() },
+            };
+
+            // 遍历字典并替换所有匹配的占位符
+            foreach (var placeholder in placeholders)
+            {
+                string pattern = $"%{placeholder.Key}%";
+                string replacement = placeholder.Value();
+                message = Regex.Replace(message, pattern, replacement, RegexOptions.IgnoreCase);
+            }
+        }
         #region 发送消息
         private void SendChat(ServerChatEventArgs args, string ChatContent, string preprefix, string prefix, string PlayerName, string suffix, string sufsuffix)
         {

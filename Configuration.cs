@@ -13,13 +13,15 @@ namespace TitleLibrary
         // 玩家称号信息
         public Dictionary<string, PlayerTitleInfo> PlayerTitleInfos { get; set; }
         public string ChatFormat { get; set; }
+        public string ExtraContent { get; set; }
         public Dictionary<string, TitleLibrary> TitlesLibrary { get; set; } // 修改为字典
 
         public Configuration()
         {
-            ChatFormat = "{0}{1}{2}:{5}{3}{4}"; // 默认格式
+            ChatFormat = "{0}{1}{2}:{5}{3}{4}{6}"; // 默认格式
             TitlesLibrary = new Dictionary<string, TitleLibrary>();
             PlayerTitleInfos = new Dictionary<string, PlayerTitleInfo>();
+            ExtraContent = "";
         }
 
         public void Write()

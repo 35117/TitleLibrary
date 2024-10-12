@@ -24,7 +24,7 @@ namespace TitleLibrary
         public override string Author => "35117";
         public override string Description => "TitleLibrary";
         public override string Name => "TitleLibrary";
-        public override Version Version => new Version(1, 0, 0);
+        public override Version Version => new Version(1, 1, 0);
         static Random random = new Random();
         internal static Configuration Config = new();
 
@@ -78,29 +78,23 @@ namespace TitleLibrary
                 if (ChatDetect(e))
                 {
                     string NewChatContent = e.Text;
-                    string preprefix = ""; // 根据配置设置preprefix
-                    string prefix = ""; // 根据配置设置prefix
-                    string PlayerName = TShock.Players[e.Who].Name; // 使用 Name 获取玩家名称
-                    string suffix = ""; // 根据配置设置suffix
-                    string sufsuffix = ""; // 根据配置设置sufsuffix
+                    string PlayerName = TShock.Players[e.Who].Name;
+                    var titleInfo = Config.PlayerTitleInfos.GetValueOrDefault(PlayerName, new Configuration.PlayerTitleInfo());
+                    string preprefix = titleInfo.PrePrefix;
+                    string prefix = titleInfo.Prefix;
+                    string suffix = titleInfo.Suffix;
+                    string sufsuffix = titleInfo.SufSuffix;
+                    string ExtraContent = !string.IsNullOrEmpty(Config.ExtraContent) ? Config.ExtraContent : string.Empty;
 
-                    if (Config.PlayerTitleInfos.ContainsKey(PlayerName))
-                    {
-                        var titleInfo = Config.PlayerTitleInfos[PlayerName];
-                        preprefix = string.Join(" ", titleInfo.PrePrefix);
-                        prefix = string.Join(" ", titleInfo.Prefix);
-                        suffix = string.Join(" ", titleInfo.Suffix);
-                        sufsuffix = string.Join(" ", titleInfo.SufSuffix);
-                    }
                     ReplacePlaceholders(ref preprefix, TShock.Players[e.Who]);
                     ReplacePlaceholders(ref prefix, TShock.Players[e.Who]);
                     ReplacePlaceholders(ref suffix, TShock.Players[e.Who]);
                     ReplacePlaceholders(ref sufsuffix, TShock.Players[e.Who]);
-                    // 构建新的消息内容
-                    string NewMessage = string.Format(Config.ChatFormat, preprefix, prefix, PlayerName, suffix, sufsuffix, NewChatContent);
+                    ReplacePlaceholders(ref ExtraContent, TShock.Players[e.Who]);
 
-                    // 发送新的消息
-                    SendChat(e, NewChatContent, preprefix, prefix, PlayerName, suffix, sufsuffix);
+                    string NewMessage = string.Format(Config.ChatFormat, preprefix, prefix, PlayerName, suffix, sufsuffix, NewChatContent, ExtraContent);
+
+                    SendChat(e, NewChatContent, preprefix, prefix, PlayerName, suffix, sufsuffix, ExtraContent);
                 }
             }
             catch (FormatException ex)
@@ -110,6 +104,7 @@ namespace TitleLibrary
             }
         }
         #endregion
+
 
         private static void ReplacePlaceholders(ref string message, TSPlayer player)
         {
@@ -134,18 +129,18 @@ namespace TitleLibrary
                 { "zhipm.deathcount", () =>GetSQLData(player.Name,"deathCount","Zhipm_PlayerExtra","Name").ToString() },
             };
             // 遍历字典并替换所有匹配的占位符
+            StringBuilder sb = new StringBuilder(message);
             foreach (var placeholder in placeholders)
             {
-                string pattern = $"%{placeholder.Key}%";
-                string replacement = placeholder.Value();
-                message = Regex.Replace(message, pattern, replacement);
+                sb.Replace($"%{placeholder.Key}%", placeholder.Value());
             }
+            message = sb.ToString();
         }
 
         public static int GetSQLData(string playerName, string list, string table, string name)
         {
             int defaultnum = 0;
-            using (QueryResult queryResult = DbExt.QueryReader(TShock.DB, $"SELECT {list} FROM {table} WHERE {name}=@0", new object[] { playerName }))
+            using (QueryResult queryResult = DbExt.QueryReader(TShock.DB, $"SELECT {list} FROM {table} WHERE {name} = @0", new object[] { playerName }))
             {
                 if (queryResult.Read())
                 {
@@ -155,14 +150,14 @@ namespace TitleLibrary
             }
         }
         #region 发送消息
-        private void SendChat(ServerChatEventArgs args, string ChatContent, string preprefix, string prefix, string PlayerName, string suffix, string sufsuffix)
+        private void SendChat(ServerChatEventArgs args, string ChatContent, string preprefix, string prefix, string PlayerName, string suffix, string sufsuffix, string ExtraContent)
         {
             if (ChatDetect(args))
             {
                 // 使用配置中的格式字符串构建新的消息
                 string format = Config.ChatFormat.Replace("{preprefix}", "{0}").Replace("{prefix}", "{1}").Replace("{PlayerName}", "{2}")
-                    .Replace("{suffix}", "{3}").Replace("{sufsuffix}", "{4}").Replace("{ChatContent}", "{5}");
-                string NewMessage = string.Format(format, preprefix, prefix, PlayerName, suffix, sufsuffix, ChatContent);
+                    .Replace("{suffix}", "{3}").Replace("{sufsuffix}", "{4}").Replace("{ChatContent}", "{5}").Replace("{extra}", "{6}");
+                string NewMessage = string.Format(format, preprefix, prefix, PlayerName, suffix, sufsuffix, ChatContent, ExtraContent);
 
                 // 发送新的消息给所有玩家
                 TSPlayer.All.SendMessage(NewMessage, TShock.Players[args.Who].Group.R, TShock.Players[args.Who].Group.G, TShock.Players[args.Who].Group.B);

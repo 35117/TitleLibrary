@@ -13,6 +13,8 @@ using System.Text.RegularExpressions;
 using TShockAPI.DB;
 using System.Data;
 using IL.Terraria.Chat.Commands;
+using Rests;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace TitleLibrary
 {
@@ -113,19 +115,43 @@ namespace TitleLibrary
         {
             var placeholders = new Dictionary<string, Func<string>>()
             {
-                { "health", () => player.TPlayer.statLife.ToString() },
-                { "maxhealth", () => player.TPlayer.statLifeMax.ToString() },
-                { "mana", () => player.TPlayer.statMana.ToString() },
-                { "maxmana", () =>player.TPlayer.statManaMax.ToString() },
-                { "handitem", () =>player.TPlayer.HeldItem.Name.ToString() },
+                { "Health", () => player.TPlayer.statLife.ToString() },
+                { "MaxHealth", () => player.TPlayer.statLifeMax.ToString() },
+                { "MaxHealth2", () => player.TPlayer.statLifeMax2.ToString() },
+                { "Mana", () => player.TPlayer.statMana.ToString() },
+                { "MaxMana", () =>player.TPlayer.statManaMax.ToString() },
+                { "MaxMana2", () =>player.TPlayer.statManaMax2.ToString() },
+                { "HandItem", () =>player.TPlayer.HeldItem.Name.ToString() },
+                { "Defense", () =>player.TPlayer.statDefense.ToString() },
+                { "Index", () =>player.Index.ToString() },
+                { "death.count", () =>GetSQLData(player.Name,"Count","Death","Name").ToString() },
+                { "eco.money", () =>GetSQLData(player.Name,"Currency","Economics","UserName").ToString() },
+                { "online.duration", () =>GetSQLData(player.Name,"duration","OnlineDuration","username").ToString() },
+                { "eco.level", () =>GetSQLData(player.Name,"Level","RPG","UserName").ToString() },
+                { "zhipm.time", () =>GetSQLData(player.Name,"time","Zhipm_PlayerExtra","Name").ToString() },
+                { "zhipm.killnpcnum", () =>GetSQLData(player.Name,"killNPCnum","Zhipm_PlayerExtra","Name").ToString() },
+                { "zhipm.point", () =>GetSQLData(player.Name,"point","Zhipm_PlayerExtra","Name").ToString() },
+                { "zhipm.deathcount", () =>GetSQLData(player.Name,"deathCount","Zhipm_PlayerExtra","Name").ToString() },
             };
-
             // 遍历字典并替换所有匹配的占位符
             foreach (var placeholder in placeholders)
             {
                 string pattern = $"%{placeholder.Key}%";
                 string replacement = placeholder.Value();
-                message = Regex.Replace(message, pattern, replacement, RegexOptions.IgnoreCase);
+                message = Regex.Replace(message, pattern, replacement);
+            }
+        }
+
+        public static int GetSQLData(string playerName, string list, string table, string name)
+        {
+            int defaultnum = 0;
+            using (QueryResult queryResult = DbExt.QueryReader(TShock.DB, $"SELECT {list} FROM {table} WHERE {name}=@0", new object[] { playerName }))
+            {
+                if (queryResult.Read())
+                {
+                    return queryResult.Get<int>(list);
+                }
+                return defaultnum;
             }
         }
         #region 发送消息
@@ -313,10 +339,10 @@ namespace TitleLibrary
             }
             else if (num == 0)
             {
-                // 将玩家的 PlayerTitleInfos 对应的prefix或suffix设置为默认的空字符串
+                // 清空玩家的 PlayerTitleInfos 对应的前缀或后缀
                 if (type == "prepre")
                 {
-                    Config.PlayerTitleInfos[args.Player.Name].PrePrefix = "";
+                    Config.PlayerTitleInfos[args.Player.Name].PrePrefix = ""; // 设置 PlayerTitleInfos 中的字段为空字符串
                 }
                 else if (type == "pre")
                 {
@@ -330,6 +356,7 @@ namespace TitleLibrary
                 {
                     Config.PlayerTitleInfos[args.Player.Name].SufSuffix = "";
                 }
+                Config.Write();
                 args.Player.SendSuccessMessage($"你的 {type} 已被清空.");
             }
             else

@@ -46,7 +46,6 @@ namespace TitleLibrary
         {
             if (disposing)
             {
-                //移除所有由本插件添加的所有指令
                 TShockAPI.Hooks.GeneralHooks.ReloadEvent -= ReloadEvent;
                 var asm = Assembly.GetExecutingAssembly();
                 Commands.ChatCommands.RemoveAll(c => c.CommandDelegate.Method?.DeclaringType?.Assembly == asm);
@@ -108,6 +107,12 @@ namespace TitleLibrary
 
         private static void ReplacePlaceholders(ref string message, TSPlayer player)
         {
+            foreach (var placeholder in Config.DatabasePlaceholders)
+            {
+                string pattern = $"%{placeholder.Key}%";
+                int value = GetSQLData(player.Name, placeholder.Value.ColumnName, placeholder.Value.TableName, placeholder.Value.PlayerColumn);
+                message = Regex.Replace(message, pattern, value.ToString(), RegexOptions.IgnoreCase);
+            }
             var placeholders = new Dictionary<string, Func<string>>()
             {
                 { "Health", () => player.TPlayer.statLife.ToString() },
@@ -119,22 +124,13 @@ namespace TitleLibrary
                 { "HandItem", () =>player.TPlayer.HeldItem.Name.ToString() },
                 { "Defense", () =>player.TPlayer.statDefense.ToString() },
                 { "Index", () =>player.Index.ToString() },
-                { "death.count", () =>GetSQLData(player.Name,"Count","Death","Name").ToString() },
-                { "eco.money", () =>GetSQLData(player.Name,"Currency","Economics","UserName").ToString() },
-                { "online.duration", () =>GetSQLData(player.Name,"duration","OnlineDuration","username").ToString() },
-                { "eco.level", () =>GetSQLData(player.Name,"Level","RPG","UserName").ToString() },
-                { "zhipm.time", () =>GetSQLData(player.Name,"time","Zhipm_PlayerExtra","Name").ToString() },
-                { "zhipm.killnpcnum", () =>GetSQLData(player.Name,"killNPCnum","Zhipm_PlayerExtra","Name").ToString() },
-                { "zhipm.point", () =>GetSQLData(player.Name,"point","Zhipm_PlayerExtra","Name").ToString() },
-                { "zhipm.deathcount", () =>GetSQLData(player.Name,"deathCount","Zhipm_PlayerExtra","Name").ToString() },
             };
-            // 遍历字典并替换所有匹配的占位符
-            StringBuilder sb = new StringBuilder(message);
             foreach (var placeholder in placeholders)
             {
-                sb.Replace($"%{placeholder.Key}%", placeholder.Value());
+                string pattern = $"%{placeholder.Key}%";
+                string replacement = placeholder.Value();
+                message = Regex.Replace(message, pattern, replacement, RegexOptions.IgnoreCase);
             }
-            message = sb.ToString();
         }
 
         public static int GetSQLData(string playerName, string list, string table, string name)
@@ -300,7 +296,7 @@ namespace TitleLibrary
 
             if (!Config.TitlesLibrary.ContainsKey(args.Player.Name))
             {
-                args.Player.SendErrorMessage($"'{args.Player.Name}' 没有称号.");
+                args.Player.SendErrorMessage($"您没有可用称号.");
                 return;
             }
 
